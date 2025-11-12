@@ -11,10 +11,35 @@ class TransactionController extends Controller
     /**
      * Tampilkan daftar Transaksi. (Read)
      */
-    public function index()
+public function index()
     {
-        // Load relasi COA untuk tampilan tabel
-        return response()->json(Transaction::with('coa')->orderBy('date', 'desc')->get());
+        // Ambil semua transaksi, diurutkan dari terbaru ke terlama
+        // Menggunakan with(['coa.category']) untuk Eager Loading
+        $transactions = Transaction::with(['coa.category'])
+            ->orderBy('date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        // Transformasi data untuk penggunaan di frontend (memastikan format yang dibutuhkan Nuxt tersedia)
+        return response()->json($transactions->map(function ($tx) {
+
+            // Menggunakan optional() untuk menghindari error jika relasi coa atau category null
+            $categoryType = optional(optional($tx->coa)->category)->type ?? 'Unknown';
+
+            // Tentukan jumlah: jika Debit > 0, gunakan Debit; jika tidak, gunakan Credit
+            $amount = $tx->debit > 0 ? $tx->debit : $tx->credit;
+
+            return [
+                'id' => $tx->id,
+                // Format tanggal agar mudah dibaca di frontend (ex: 12 Nov 2025)
+                'date' => $tx->date->format('d M Y'),
+                'description' => $tx->description,
+                'type' => $categoryType, // 'Income', 'Expense', atau 'Unknown'
+                'amount' => $amount,
+                // Gunakan optional() untuk nama COA
+                'coa_name' => optional($tx->coa)->name ?? 'N/A',
+            ];
+        }));
     }
 
     /**

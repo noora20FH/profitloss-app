@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\CoaCategory; // Untuk mengambil nama kategori
 use App\Exports\ProfitLossExport;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Models\Transaction;
 
 class ReportController extends Controller
 {
@@ -198,5 +199,42 @@ class ReportController extends Controller
             new ProfitLossExport($startDate, $endDate, $reportData['grouped_data'], $dynamicMonths),
             $fileName
         );
+    }
+
+
+    /**
+     * Mengembalikan ringkasan total income/expense untuk bulan berjalan.
+     * GET /api/reports/summary/month
+     */
+   public function getAllTransactions()
+    {
+        // Ambil semua transaksi, diurutkan dari terbaru ke terlama
+        // Menggunakan with(['coa.category']) untuk Eager Loading
+        $transactions = Transaction::with(['coa.category'])
+            ->orderBy('date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        // Transformasi data untuk penggunaan di frontend
+        return response()->json($transactions->map(function ($tx) {
+
+            // Menggunakan optional() untuk menghindari error jika relasi coa atau category null
+            $categoryType = optional(optional($tx->coa)->category)->type ?? 'Unknown';
+
+            // Tentukan jumlah: jika Debit > 0, gunakan Debit; jika tidak, gunakan Credit
+            // Asumsi kolom debit dan credit ada di tabel transactions
+            $amount = $tx->debit > 0 ? $tx->debit : $tx->credit;
+
+            return [
+                'id' => $tx->id,
+                // Format tanggal agar mudah dibaca di frontend (ex: 12 Nov 2025)
+                'date' => $tx->date->format('d M Y'),
+                'description' => $tx->description,
+                'type' => $categoryType, // 'Income', 'Expense', atau 'Unknown'
+                'amount' => $amount,
+                // Gunakan optional() untuk nama COA
+                'coa_name' => optional($tx->coa)->name ?? 'N/A',
+            ];
+        }));
     }
 }

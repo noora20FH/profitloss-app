@@ -12,7 +12,7 @@ class Transaction extends Model
     protected $fillable = [
         'coa_id',
         'date',
-        'desc', // Menggunakan 'desc' sesuai contoh tabel Anda, tapi disarankan menggunakan 'description'
+        'description',
         'debit',
         'credit'
     ];
@@ -28,4 +28,7 @@ class Transaction extends Model
         // Satu Transaksi dimiliki oleh satu Chart of Account
         return $this->belongsTo(ChartOfAccount::class, 'coa_id');
     }
+
+
+
 }
