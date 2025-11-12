@@ -46,4 +46,16 @@ class ChartOfAccountController extends Controller
         $coa->update($validated);
         return response()->json($coa);
     }
+    public function destroy(ChartOfAccount $coa)
+    {
+        // Cek relasi: Pastikan COA tidak digunakan dalam Transaksi
+        if ($coa->transactions()->exists()) {
+            return response()->json([
+                'message' => 'Gagal menghapus. Akun COA ini sudah memiliki Transaksi terkait.'
+            ], 409); // 409 Conflict
+        }
+
+        $coa->delete();
+        return response()->json(null, 204);
+    }
 }

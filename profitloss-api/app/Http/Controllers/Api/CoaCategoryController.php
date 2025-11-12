@@ -42,5 +42,17 @@ class CoaCategoryController extends Controller
         return response()->json($category);
     }
 
-    // Fungsi show dan destroy (Delete) juga dapat ditambahkan jika diperlukan.
+    public function destroy(CoaCategory $category)
+{
+    // Cek relasi: Pastikan kategori tidak digunakan oleh COA manapun
+    if ($category->coas()->exists()) {
+        return response()->json([
+            'message' => 'Gagal menghapus. Kategori ini sedang digunakan oleh Akun COA.'
+        ], 409); // 409 Conflict
+    }
+
+    $category->delete();
+    // 204 No Content adalah respons standar untuk DELETE yang berhasil
+    return response()->json(null, 204);
+}
 }
