@@ -14,7 +14,7 @@ Proyek ini dibangun menggunakan arsitektur *Full-Stack* dengan pemisahan antara 
 | | **Tailwind CSS** | Framework CSS utilitas untuk *styling* cepat dan responsif. |
 | **Backend** | **Laravel** | Framework PHP untuk API RESTful, *routing*, dan *business logic*. |
 | | **PHP** | Bahasa pemrograman utama di sisi *server*. |
-| **Database** | **MySQL / MariaDB** | Sistem manajemen database relasional. |
+| **Database** | **MySQL** | Sistem manajemen database relasional. |
 | **Integrasi** | **RESTful API** | Digunakan sebagai jembatan komunikasi antara Nuxt dan Laravel. |
 | | **RuntimeConfig** | Fitur Nuxt.js untuk konfigurasi variabel lingkungan API secara dinamis. |
 
@@ -23,10 +23,11 @@ Proyek ini dibangun menggunakan arsitektur *Full-Stack* dengan pemisahan antara 
 ## 📚 2. Struktur Data (Dataset)
 
 Aplikasi menggunakan skema database akuntansi dasar yang melibatkan tiga tabel utama yang saling berelasi:
+https://dbdiagram.io/d/Profit/Loss-Application-691472ac6735e11170709832 
 
 | Tabel | Deskripsi | Relasi Kunci |
 | :--- | :--- | :--- |
-| **`coa_categories`** | Menyimpan kategori utama COA (misalnya: 'Income', 'Expense'). | - |
+| **`coa_categories`** | Menyimpan kategori utama COA (misalnya: 'Salary', 'Transport Expense'). | - |
 | **`chart_of_accounts`** | Menyimpan daftar akun buku besar (COA). | `category_id` (ke `coa_categories`) |
 | **`transactions`** | Menyimpan semua jurnal transaksi (debit/kredit, tanggal, deskripsi). | `coa_id` (ke `chart_of_accounts`) |
 
