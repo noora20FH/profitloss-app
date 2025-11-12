@@ -26,15 +26,3 @@ Route::get('/accounts', function () {
 });
 
 
-
-// Grouping routes di bawah /api
-Route::prefix('api')->group(function () {
-    // CRUD untuk Master Kategori COA
-    Route::resource('categories', CoaCategoryController::class)->only(['index', 'store', 'update']);
-
-    // CRUD untuk Master Chart of Accounts (COA)
-    Route::resource('coa', ChartOfAccountController::class)->only(['index', 'store', 'update']);
-
-    // CRUD untuk Transaksi
-    Route::resource('transactions', TransactionController::class)->only(['index', 'store', 'update']);
-});

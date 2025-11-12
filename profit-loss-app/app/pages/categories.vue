@@ -45,14 +45,13 @@ const openEditModal = (item) => {
 const closeModal = () => {
     showModal.value = false;
 };
-
 // --- SUBMIT (CREATE & UPDATE) ---
 const handleSubmit = async () => {
     isSubmitting.value = true;
     validationErrors.value = {};
 
     const url = isEditing.value ? `/categories/${form.id}` : '/categories';
-    const method = isEditing.value ? 'PUT' : 'POST';
+    const method = isEditing.value ? 'PUT' : 'POST'; 
 
     try {
         await $fetch(url, {
@@ -61,20 +60,30 @@ const handleSubmit = async () => {
             body: { name: form.name },
         });
 
+        // SUCCESS:
         closeModal();
-        await refreshData(); // Muat ulang data tabel
-        alert(`Kategori berhasil di${isEditing.value ? 'perbarui' : 'buat'}!`);
+        await refreshData();
+        // Anda bisa menggunakan toast/notifikasi yang lebih baik, tapi alert untuk saat ini
+        alert(`Kategori berhasil di${isEditing.value ? 'perbarui' : 'buat'}!`); 
 
     } catch (err) {
+        // ERROR:
+        console.error("API Submission Error:", err); // Log error di konsol browser
+        
         if (err.response && err.response.status === 422) {
+            // Error Validasi Laravel
             validationErrors.value = err.response._data.errors || {};
+            alert(`Gagal menyimpan: ${err.response._data.message}. Cek input Anda.`); 
         } else {
-            alert(`Gagal menyimpan data. Error: ${err.message}`);
+            // Error Umum (Koneksi, 500 Internal Server Error, dll.)
+            alert(`Gagal terhubung ke server atau terjadi kesalahan internal: ${err.message}`);
         }
     } finally {
+        // Block FINALLY memastikan isSubmitting selalu menjadi false, baik berhasil maupun gagal.
         isSubmitting.value = false;
     }
 };
+
 
 // Fungsi utility untuk format tanggal
 const formatDate = (dateString) => {
