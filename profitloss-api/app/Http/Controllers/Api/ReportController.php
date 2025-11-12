@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\CoaCategory; // Untuk mengambil nama kategori
+use App\Exports\ProfitLossExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller
 {
@@ -32,6 +34,7 @@ class ReportController extends Controller
             ->select(
                 'coa_categories.id as category_id',
                 'coa_categories.name as category_name',
+                'coa_categories.type as category_type',
                 // Mengelompokkan berdasarkan bulan dan tahun
                 DB::raw('YEAR(transactions.date) as year'),
                 DB::raw('MONTH(transactions.date) as month'),
@@ -40,7 +43,7 @@ class ReportController extends Controller
                 DB::raw('SUM(transactions.credit) as total_credit')
             )
             ->whereBetween('transactions.date', [$startDate, $endDate])
-            ->groupBy('coa_categories.id', 'coa_categories.name', DB::raw('YEAR(transactions.date)'), DB::raw('MONTH(transactions.date)'))
+            ->groupBy('coa_categories.id', 'coa_categories.name', 'coa_categories.type', DB::raw('YEAR(transactions.date)'), DB::raw('MONTH(transactions.date)'))
             ->orderBy('year', 'asc')
             ->orderBy('month', 'asc')
             ->get();
@@ -68,71 +71,132 @@ class ReportController extends Controller
      */
     private function formatProfitLossData($results)
     {
-        $groupedData = [];
+        $reportDataByMonth = [];
         $totalIncome = 0;
         $totalExpense = 0;
 
-        foreach ($results as $row) {
-            $monthYear = $row->year . '-' . str_pad($row->month, 2, '0', STR_PAD_LEFT);
+        // Grouping data ke dalam struktur yang lebih baik
+        $groupedByTypeAndMonth = [];
 
-            // Inisialisasi jika bulan/tahun belum ada
-            if (!isset($groupedData[$monthYear])) {
-                $groupedData[$monthYear] = [
-                    'month_year' => $monthYear,
-                    'categories' => [],
+        foreach ($results as $row) {
+
+            // 🎯 PERBAIKAN 1: Gunakan null coalescing untuk menjamin property ada.
+            // Jika row->category_type undefined/null, default ke 'Unknown'
+            $categoryType = $row->category_type ?? 'Unknown';
+
+            // Net Value = (Debit) - (Kredit)
+            $netValue = $row->total_debit - $row->total_credit;
+
+            // 1. Tentukan Nilai yang akan ditampilkan (Absolute Value)
+            $displayValue = 0;
+            // Ganti semua $row->category_type dengan $categoryType
+            if ($categoryType === 'Income') {
+                // Untuk Income, nilai yang relevan adalah Credit (Pemasukan).
+                $displayValue = $row->total_credit;
+                $totalIncome += $row->total_credit;
+            } elseif ($categoryType === 'Expense') {
+                // Untuk Expense, nilai yang relevan adalah Debit (Beban).
+                $displayValue = $row->total_debit;
+                $totalExpense += $row->total_debit;
+            } else {
+                // Jika tipenya Unknown (misalnya Aset/Liabilitas/Equity)
+                // Baris ini TIDAK seharusnya tampil di P/L. Abaikan di perhitungan total P/L.
+                // Anda mungkin perlu memfilter ini di query jika tidak ingin masuk.
+                continue;
+            }
+
+            // 2. Kumpulkan data berdasarkan Tipe Akun dan Bulan
+            $monthYear = $row->year . '-' . str_pad($row->month, 2, '0', STR_PAD_LEFT);
+            $type = $categoryType; // Gunakan variabel yang aman
+
+            if (!isset($groupedByTypeAndMonth[$type])) {
+                $groupedByTypeAndMonth[$type] = [];
+            }
+            if (!isset($groupedByTypeAndMonth[$type][$row->category_id])) {
+                $groupedByTypeAndMonth[$type][$row->category_id] = [
+                    'id' => $row->category_id,
+                    'name' => $row->category_name,
+                    'type' => $type,
+                    'data_by_month' => []
                 ];
             }
 
-            // Hitung total nilai kategori (Debit - Kredit, atau sebaliknya tergantung nature)
-            // Untuk laporan P/L, kita asumsikan debit/credit mewakili perubahan pada COA.
-            // Di sini, kita akan menyajikan total nilai per kategori sebagai penjumlahan:
-            $netValue = $row->total_debit - $row->total_credit;
-
-            // NOTE PENTING: Untuk Laporan Laba Rugi yang benar, Anda harus mengelompokkan
-            // Kategori ke dalam Tipe "Pemasukan (Income)" atau "Beban (Expense)".
-            // Karena kita tidak memiliki kolom 'type' di kategori, kita asumsikan
-            // semua yang memiliki netValue positif adalah INCOME dan negatif adalah EXPENSE (ini SANGAT SIMPLISTIK).
-
-            // Solusi Lebih Baik (jika Anda memiliki kolom TIPE di coa_categories):
-            // $type = $row->category_type; // 'Income' atau 'Expense'
-
-            // Dalam contoh ini, kita hanya menyajikan data agregat dan mengelompokkan
-            // Total Income/Expense berdasarkan saldo.
-
-            $groupedData[$monthYear]['categories'][] = [
-                'category_id' => $row->category_id,
-                'category_name' => $row->category_name,
-                'total_debit' => (float) $row->total_debit,
-                'total_credit' => (float) $row->total_credit,
-                'net_value' => (float) $netValue,
-            ];
-
-            // Agregasi Total Income/Expense untuk ringkasan akhir
-            if ($netValue > 0) {
-                // Asumsi: Net Debit (Debit > Kredit) mewakili pemasukan atau peningkatan aset/penurunan utang
-                // Dalam konteks P/L sederhana, ini bisa dihitung sebagai Net Income (Pendapatan - Beban)
-                // Kita gunakan logika sederhana: total debit (pendapatan) vs total kredit (beban)
-                $totalIncome += $row->total_debit;
-                $totalExpense += $row->total_credit;
-
-            } else {
-                // Jika netValue negatif
-                $totalIncome += $row->total_debit;
-                $totalExpense += $row->total_credit;
-            }
+            // Simpan nilai tampil (Income/Expense Value) per bulan
+            $groupedByTypeAndMonth[$type][$row->category_id]['data_by_month'][$monthYear] = $displayValue;
         }
 
-        // Perhitungan Akhir
         $netIncome = $totalIncome - $totalExpense;
 
-        // Reset indeks array agar Nuxt lebih mudah mengonsumsi (dari array asosiatif ke array of objects)
-        $finalGroupedData = array_values($groupedData);
-
         return [
-            'grouped_data' => $finalGroupedData,
+            // 🎯 Kunci 'data' sekarang berisi data yang dikelompokkan berdasarkan Tipe Akun
+            'grouped_data' => $groupedByTypeAndMonth,
             'total_income' => (float) $totalIncome,
             'total_expense' => (float) $totalExpense,
             'net_income' => (float) $netIncome,
         ];
+    }
+    public function exportProfitLoss(Request $request)
+    {
+        // Lakukan validasi yang sama
+        $validated = $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = $validated['start_date'];
+        $endDate = $validated['end_date'];
+
+        // Dapatkan data agregasi MENTAH dari Query Agregasi (D1.2)
+        $results = DB::table('transactions')
+            ->join('chart_of_accounts', 'transactions.coa_id', '=', 'chart_of_accounts.id')
+            ->join('coa_categories', 'chart_of_accounts.category_id', '=', 'coa_categories.id')
+            ->select(
+                'coa_categories.id as category_id',
+                'coa_categories.name as category_name',
+                'coa_categories.type as category_type', // 🎯 PASTIKAN BARIS INI ADA
+                DB::raw('YEAR(transactions.date) as year'),
+                DB::raw('MONTH(transactions.date) as month'),
+                DB::raw('SUM(transactions.debit) as total_debit'),
+                DB::raw('SUM(transactions.credit) as total_credit')
+            )
+            ->whereBetween('transactions.date', [$startDate, $endDate])
+            // 🎯 PASTIKAN category_type JUGA ADA DI GROUP BY
+            ->groupBy(
+                'coa_categories.id',
+                'coa_categories.name',
+                'coa_categories.type', // 🎯 PASTIKAN BARIS INI ADA
+                DB::raw('YEAR(transactions.date)'),
+                DB::raw('MONTH(transactions.date)')
+            )
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        // Lanjutkan memanggil formatProfitLossData
+        $reportData = $this->formatProfitLossData($results);
+
+        // Ambil bulan dinamis untuk header Excel
+        // 🎯 PERBAIKAN 2: Mengambil daftar bulan unik dari struktur data yang bersarang
+        $dynamicMonths = [];
+
+        foreach ($reportData['grouped_data'] as $type => $categories) {
+            foreach ($categories as $category) {
+                foreach (array_keys($category['data_by_month']) as $month) {
+                    $dynamicMonths[] = $month;
+                }
+            }
+        }
+        // Hapus duplikat dan urutkan
+        $dynamicMonths = array_unique($dynamicMonths);
+        sort($dynamicMonths);
+
+
+        $fileName = 'Laba_Rugi_' . $startDate . '_to_' . $endDate . '.xlsx';
+
+        // Panggil Export Class
+        return Excel::download(
+            new ProfitLossExport($startDate, $endDate, $reportData['grouped_data'], $dynamicMonths),
+            $fileName
+        );
     }
 }

@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\CoaCategoryController;
 use App\Http\Controllers\Api\ChartOfAccountController;
 use App\Http\Controllers\Api\TransactionController;
-use App\Http\Controllers\Api\ReportController;
 
 
 Route::get('/api/connection-test', function () {
@@ -27,6 +26,3 @@ Route::get('/accounts', function () {
 });
 
 
-Route::prefix('reports')->group(function () {
-    Route::get('profitloss', [ReportController::class, 'profitLoss']);
-});

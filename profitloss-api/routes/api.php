@@ -18,4 +18,5 @@ Route::resource('transactions', TransactionController::class)->only(['index', 's
 
 Route::prefix('reports')->group(function () {
     Route::get('profitloss', [ReportController::class, 'profitLoss']);
+    Route::get('profitloss/export', [ReportController::class, 'exportProfitLoss']);
 });

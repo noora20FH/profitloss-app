@@ -26,22 +26,22 @@ class ChartOfAccountSeeder extends Seeder
 
         $accounts = [
             // Income
-            ['code' => '401', 'name' => 'Gaji Karyawan', 'category_name' => 'Salary'],
-            ['code' => '402', 'name' => 'Gaji Ketua MPR', 'category_name' => 'Salary'],
-            ['code' => '403', 'name' => 'Profit Trading', 'category_name' => 'Other Income'],
+            ['code' => '401', 'name' => 'Gaji Karyawan', 'category_name' => 'Salary', 'type' => 'Income'],
+            ['code' => '402', 'name' => 'Gaji Ketua MPR', 'category_name' => 'Salary', 'type' => 'Income'],
+            ['code' => '403', 'name' => 'Profit Trading', 'category_name' => 'Other Income', 'type' => 'Income'],
 
             // Expense
-            ['code' => '601', 'name' => 'Biaya Sekolah', 'category_name' => 'Family Expense'],
-            ['code' => '602', 'name' => 'Bensin', 'category_name' => 'Transport Expense'],
-            ['code' => '603', 'name' => 'Parkir', 'category_name' => 'Transport Expense'],
-            ['code' => '604', 'name' => 'Makan Siang', 'category_name' => 'Meal Expense'],
-            ['code' => '605', 'name' => 'Makanan Pokok Bulanan', 'category_name' => 'Meal Expense'],
+            ['code' => '601', 'name' => 'Biaya Sekolah', 'category_name' => 'Family Expense', 'type' => 'Expense'],
+            ['code' => '602', 'name' => 'Bensin', 'category_name' => 'Transport Expense', 'type' => 'Expense'],
+            ['code' => '603', 'name' => 'Parkir', 'category_name' => 'Transport Expense', 'type' => 'Expense'],
+            ['code' => '604', 'name' => 'Makan Siang', 'category_name' => 'Meal Expense', 'type' => 'Expense'],
+            ['code' => '605', 'name' => 'Makanan Pokok Bulanan', 'category_name' => 'Meal Expense', 'type' => 'Expense'],
         ];
 
         foreach ($accounts as $account) {
             // Pastikan kategori ditemukan sebelum membuat COA
             $categoryId = $categoryMap[$account['category_name']] ?? null;
-            
+
             if ($categoryId) {
                 ChartOfAccount::create([
                     'code' => $account['code'],
