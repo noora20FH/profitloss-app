@@ -27,24 +27,43 @@ class ReportController extends Controller
         $startDate = $validated['start_date'];
         $endDate = $validated['end_date'];
 
-        // --- 2. Query Agregasi (D1.2) ---
-        // Menggunakan JOIN dan DB::raw untuk mengagregasi Debit/Kredit per Kategori COA dalam rentang tanggal.
-        $results = DB::table('transactions')
-            ->join('chart_of_accounts', 'transactions.coa_id', '=', 'chart_of_accounts.id')
-            ->join('coa_categories', 'chart_of_accounts.category_id', '=', 'coa_categories.id')
+        /// --- 2. Query Agregasi (D1.2) ---
+        $results = DB::table('coa_categories')
+            // Filter hanya kategori Income dan Expense
+            ->whereIn('coa_categories.type', ['Income', 'Expense']) // Tambahkan filter awal
+
+            // LEFT JOIN ke COA. Kategori tetap ada meskipun tidak punya COA.
+            ->leftJoin('chart_of_accounts', 'coa_categories.id', '=', 'chart_of_accounts.category_id')
+
+            // LEFT JOIN ke transactions. Kategori tetap ada meskipun tidak punya Transaksi.
+            ->leftJoin('transactions', function ($join) use ($startDate, $endDate) {
+                $join->on('chart_of_accounts.id', '=', 'transactions.coa_id')
+                    // PENTING: Batasan tanggal harus di dalam LEFT JOIN ini!
+                    ->whereBetween('transactions.date', [$startDate, $endDate]);
+            })
+            // 🎯 PERBAIKAN KRITIS 1: Tambahkan SELECT clause
             ->select(
                 'coa_categories.id as category_id',
                 'coa_categories.name as category_name',
                 'coa_categories.type as category_type',
-                // Mengelompokkan berdasarkan bulan dan tahun
-                DB::raw('YEAR(transactions.date) as year'),
-                DB::raw('MONTH(transactions.date) as month'),
-                // Menjumlahkan Debit dan Kredit
-                DB::raw('SUM(transactions.debit) as total_debit'),
-                DB::raw('SUM(transactions.credit) as total_credit')
+
+                // Gunakan IFNULL(X, 0) pada kolom tanggal, debit, dan kredit
+                DB::raw('IFNULL(YEAR(transactions.date), 0) as year'),
+                DB::raw('IFNULL(MONTH(transactions.date), 0) as month'),
+                DB::raw('IFNULL(SUM(transactions.debit), 0) as total_debit'),
+                DB::raw('IFNULL(SUM(transactions.credit), 0) as total_credit')
             )
-            ->whereBetween('transactions.date', [$startDate, $endDate])
-            ->groupBy('coa_categories.id', 'coa_categories.name', 'coa_categories.type', DB::raw('YEAR(transactions.date)'), DB::raw('MONTH(transactions.date)'))
+            // 🎯 PERBAIKAN KRITIS 2: Hapus whereBetween di luar LEFT JOIN
+            // ->whereBetween('transactions.date', [$startDate, $endDate]) <-- Hapus baris ini
+
+            // 🎯 PERBAIKAN KRITIS 3: Gunakan IFNULL di GROUP BY
+            ->groupBy(
+                'coa_categories.id',
+                'coa_categories.name',
+                'coa_categories.type',
+                DB::raw('IFNULL(YEAR(transactions.date), 0)'), // Gunakan IFNULL di GROUP BY
+                DB::raw('IFNULL(MONTH(transactions.date), 0)')  // Gunakan IFNULL di GROUP BY
+            )
             ->orderBy('year', 'asc')
             ->orderBy('month', 'asc')
             ->get();
@@ -206,7 +225,7 @@ class ReportController extends Controller
      * Mengembalikan ringkasan total income/expense untuk bulan berjalan.
      * GET /api/reports/summary/month
      */
-   public function getAllTransactions()
+    public function getAllTransactions()
     {
         // Ambil semua transaksi, diurutkan dari terbaru ke terlama
         // Menggunakan with(['coa.category']) untuk Eager Loading

@@ -71,19 +71,22 @@ onMounted(() => {
 
 // Menghasilkan daftar unik bulan (kolom dinamis)
 const dynamicMonths = computed(() => {
-    if (!reportData.value || Object.keys(reportData.value).length === 0) return [];
+    if (!reportData.value || Object.keys(reportData.value).length === 0) return [];
 
-    const monthSet = new Set();
-    
-    // Looping melalui grup Income dan Expense untuk mendapatkan semua bulan
-    for (const typeKey in reportData.value) {
-        for (const catId in reportData.value[typeKey]) {
-            for (const monthKey in reportData.value[typeKey][catId].data_by_month) {
-                monthSet.add(monthKey);
-            }
-        }
-    }
-    return Array.from(monthSet).sort(); // Pastikan bulan terurut (cth: 2024-01, 2024-02)
+    const monthSet = new Set();
+    
+    // Looping melalui grup Income dan Expense untuk mendapatkan semua bulan
+    for (const typeKey in reportData.value) {
+        for (const catId in reportData.value[typeKey]) {
+            for (const monthKey in reportData.value[typeKey][catId].data_by_month) {
+                // 🎯 KUNCI KRITIS: Filter kunci yang tidak valid (0-00)
+                if (monthKey !== '0-00' && monthKey !== '0-0' && monthKey !== '0-1') {
+                    monthSet.add(monthKey);
+                }
+            }
+        }
+    }
+    return Array.from(monthSet).sort(); 
 });
 
 /**
