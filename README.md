@@ -23,7 +23,7 @@ Proyek ini dibangun menggunakan arsitektur *Full-Stack* dengan pemisahan antara 
 ## 📚 2. Struktur Data (Dataset)
 
 Aplikasi menggunakan skema database akuntansi dasar yang melibatkan tiga tabel utama yang saling berelasi:
-https://dbdiagram.io/d/Profit/Loss-Application-691472ac6735e11170709832 
+https://dbdiagram.io/d/Profit%2FLoss-Application-691472ac6735e11170709832
 
 | Tabel | Deskripsi | Relasi Kunci |
 | :--- | :--- | :--- |
